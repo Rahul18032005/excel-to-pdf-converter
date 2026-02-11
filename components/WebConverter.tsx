@@ -21,8 +21,8 @@ const WebConverter: React.FC<WebConverterProps> = ({ format, setFormat, onErrorU
   const [simProgress, setSimProgress] = useState(0);
   const [resultBlob, setResultBlob] = useState<Blob | null>(null);
   
-  const progressTimer = useRef<number>(null);
-  const telemetryTimer = useRef<number>(null);
+  const progressTimer = useRef<number | null>(null);
+  const telemetryTimer = useRef<number | null>(null);
 
   const telemetryLabels = [
     "NEURAL_MAPPING_ACTIVE",
@@ -51,8 +51,11 @@ const WebConverter: React.FC<WebConverterProps> = ({ format, setFormat, onErrorU
   };
 
   const cleanJsonResponse = (text: string) => {
-    // Remove potential markdown code blocks
     let cleaned = text.trim();
+    // Use a more aggressive cleanup for Gemini responses
+    const jsonMatch = cleaned.match(/\[[\s\S]*\]/);
+    if (jsonMatch) return jsonMatch[0];
+    
     if (cleaned.startsWith('```json')) {
       cleaned = cleaned.replace(/^```json/, '').replace(/```$/, '');
     } else if (cleaned.startsWith('```')) {
@@ -90,8 +93,8 @@ const WebConverter: React.FC<WebConverterProps> = ({ format, setFormat, onErrorU
           setStatusMessage("SCANNING_TOPOGRAPHY");
           
           const prompt = format === 'excel' 
-            ? "Extract all table data from this PDF. Return ONLY a JSON array of objects. No text, no intro, no backticks. Each object represents a row. Merge all pages into one flat array."
-            : "Convert this PDF to a clean, professionally formatted text document. Preserve lists and headers.";
+            ? "Extract all table data from this PDF. Return ONLY a JSON array of objects. No intro text. Each object represents a row. If multiple tables exist, combine them into one array."
+            : "Convert this PDF to a clean text document. Maintain headings and list structures.";
 
           const response = await ai.models.generateContent({
             model: 'gemini-3-flash-preview',
@@ -121,14 +124,14 @@ const WebConverter: React.FC<WebConverterProps> = ({ format, setFormat, onErrorU
 
               const worksheet = XLSX.utils.json_to_sheet(data);
               const workbook = XLSX.utils.book_new();
-              XLSX.utils.book_append_sheet(workbook, worksheet, "ExtractedData");
+              XLSX.utils.book_append_sheet(workbook, worksheet, "Data");
               const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
               blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
             } catch (jsonErr: any) {
               throw new Error(`DATA_PARSING_ERROR: ${jsonErr.message}`);
             }
           } else {
-            blob = new Blob([rawText], { type: 'application/msword' });
+            blob = new Blob([rawText], { type: 'text/plain' });
           }
 
           cleanupTimers();
@@ -159,8 +162,8 @@ const WebConverter: React.FC<WebConverterProps> = ({ format, setFormat, onErrorU
   };
 
   const cleanupTimers = () => {
-    if (progressTimer.current) clearInterval(progressTimer.current);
-    if (telemetryTimer.current) clearInterval(telemetryTimer.current);
+    if (progressTimer.current !== null) clearInterval(progressTimer.current);
+    if (telemetryTimer.current !== null) clearInterval(telemetryTimer.current);
   };
 
   const cleanup = () => {
@@ -172,7 +175,7 @@ const WebConverter: React.FC<WebConverterProps> = ({ format, setFormat, onErrorU
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    const extension = format === 'excel' ? 'xlsx' : 'doc';
+    const extension = format === 'excel' ? 'xlsx' : 'txt';
     a.download = `${originalName.replace('.pdf', '')}_converted.${extension}`;
     document.body.appendChild(a);
     a.click();
@@ -199,23 +202,23 @@ const WebConverter: React.FC<WebConverterProps> = ({ format, setFormat, onErrorU
             <div className={`w-2 h-2 rounded-full ${loading ? 'bg-orange-500 animate-pulse' : error ? 'bg-red-500' : 'bg-green-500'}`}></div>
             <h2 className="text-xl font-bold text-white tracking-tight uppercase">Direct Core V4.2</h2>
           </div>
-          <p className="text-xs text-slate-500 font-mono tracking-widest">{telemetry}</p>
+          <p className="text-xs text-slate-500 font-mono tracking-widest uppercase">{telemetry}</p>
         </div>
         
         <div className="flex gap-2 bg-slate-950 p-1.5 rounded-xl border border-slate-800">
           <button 
             disabled={loading}
             onClick={() => setFormat('excel')}
-            className={`px-6 py-2 rounded-lg text-xs font-black transition-all ${format === 'excel' ? 'bg-orange-500 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+            className={`px-6 py-2 rounded-lg text-xs font-black transition-all ${format === 'excel' ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'text-slate-500 hover:text-slate-300'}`}
           >
             .XLSX
           </button>
           <button 
             disabled={loading}
             onClick={() => setFormat('word')}
-            className={`px-6 py-2 rounded-lg text-xs font-black transition-all ${format === 'word' ? 'bg-orange-500 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+            className={`px-6 py-2 rounded-lg text-xs font-black transition-all ${format === 'word' ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'text-slate-500 hover:text-slate-300'}`}
           >
-            .DOCX
+            .TEXT
           </button>
         </div>
       </div>
@@ -223,13 +226,13 @@ const WebConverter: React.FC<WebConverterProps> = ({ format, setFormat, onErrorU
       {!loading && !downloadReady ? (
         <div className="relative border-2 border-dashed border-slate-800 hover:border-orange-500 hover:bg-slate-800/20 rounded-[2rem] p-16 flex flex-col items-center justify-center transition-all min-h-[350px] group">
           <input type="file" accept=".pdf" onChange={handleFileChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-          <div className="w-20 h-20 rounded-3xl bg-slate-800 text-slate-400 flex items-center justify-center mb-6 group-hover:scale-110 group-hover:bg-orange-500 group-hover:text-white transition-all duration-500">
+          <div className="w-20 h-20 rounded-3xl bg-slate-800 text-slate-400 flex items-center justify-center mb-6 group-hover:scale-110 group-hover:bg-orange-500 group-hover:text-white transition-all duration-500 shadow-xl">
             <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
             </svg>
           </div>
           <p className="text-xl font-bold mb-2 text-white text-center">Load Target Document</p>
-          <p className="text-sm text-slate-500 text-center font-mono uppercase tracking-tighter">Instant_Detection_Active</p>
+          <p className="text-sm text-slate-500 text-center font-mono uppercase tracking-widest text-[10px]">Instant_Detection_Active</p>
         </div>
       ) : loading ? (
         <div className="flex flex-col items-center justify-center py-12 min-h-[350px] animate-in fade-in duration-500">
