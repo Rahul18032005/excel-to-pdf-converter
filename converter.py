@@ -5,107 +5,121 @@ import pdfplumber
 import pandas as pd
 import os
 import sys
+from datetime import datetime
 
 class PDFToExcelConverter:
     def __init__(self, root):
         self.root = root
-        self.root.title("Excelconverter | Desktop Engine")
-        self.root.geometry("500x350")
+        self.root.title("Excelconverter | High-Speed Auto-Engine")
+        self.root.geometry("600x450") # Fixed typo here: 600.450 -> 600x450
         self.root.configure(bg="#0f172a")
+        
+        self.brand_orange = "#f97316"
+        self.dark_bg = "#0f172a"
+        self.card_bg = "#1e293b"
+        self.text_dim = "#94a3b8"
 
-        # Styling
         style = ttk.Style()
         style.theme_use('clam')
-        style.configure("TButton", padding=10, font=('Inter', 10, 'bold'))
+        style.configure("TProgressbar", thickness=10, troughcolor=self.dark_bg, background=self.brand_orange, bordercolor=self.dark_bg)
         
         self.setup_ui()
-        print("--- EXCELCONVERTER ENGINE INITIALIZED ---")
-        print("Ready for command. Select a PDF file to begin.")
+        print("\n" + "="*40)
+        print(" AUTO-ENGINE INITIALIZED: DIRECT MODE")
+        print(" (Files save automatically to the source folder)")
+        print("="*40)
 
     def setup_ui(self):
-        # Header
-        header = tk.Label(self.root, text="PDF to Excel Converter", font=('Inter', 18, 'bold'), 
-                         bg="#0f172a", fg="#f97316", pady=20)
-        header.pack()
-
-        # File Selection Frame
-        frame = tk.Frame(self.root, bg="#0f172a")
-        frame.pack(pady=20)
-
-        self.pdf_path = tk.StringVar(value="No file selected")
-        tk.Label(frame, textvariable=self.pdf_path, wraplength=400, bg="#0f172a", fg="#94a3b8").pack()
+        header_frame = tk.Frame(self.root, bg=self.dark_bg, pady=20)
+        header_frame.pack(fill="x")
         
-        btn_select = tk.Button(frame, text="SELECT PDF FILE", command=self.select_file, 
-                              bg="#f97316", fg="white", font=('Inter', 10, 'bold'), relief="flat", padx=20)
-        btn_select.pack(pady=10)
+        tk.Label(header_frame, text="EXCELCONVERTER", font=('Inter', 10, 'bold'), bg=self.dark_bg, fg=self.brand_orange).pack()
+        tk.Label(header_frame, text="Direct Extraction Unit", font=('Inter', 22, 'bold'), bg=self.dark_bg, fg="white").pack()
 
-        # Progress bar
-        self.progress = ttk.Progressbar(self.root, orient="horizontal", length=300, mode="determinate")
-        self.progress.pack(pady=20)
+        card = tk.Frame(self.root, bg=self.card_bg, padx=30, pady=30, highlightbackground="#334155", highlightthickness=1)
+        card.pack(pady=10, padx=40, fill="both", expand=True)
 
-        # Convert Button
-        self.btn_convert = tk.Button(self.root, text="START EXTRACTION", command=self.convert, 
-                                   bg="#1e293b", fg="white", font=('Inter', 10, 'bold'), relief="flat", padx=40, state="disabled")
-        self.btn_convert.pack(pady=10)
+        self.pdf_path = tk.StringVar(value="SELECT PDF FOR AUTOMATIC PROCESSING")
+        path_label = tk.Label(card, textvariable=self.pdf_path, wraplength=450, bg=self.card_bg, fg=self.text_dim, font=('Inter', 9))
+        path_label.pack(pady=(0, 20))
+        
+        self.btn_select = tk.Button(card, text="SELECT SOURCE PDF", command=self.select_file, 
+                              bg=self.brand_orange, fg="white", font=('Inter', 11, 'bold'), 
+                              relief="flat", padx=30, pady=12, cursor="hand2")
+        self.btn_select.pack()
+
+        progress_frame = tk.Frame(card, bg=self.card_bg)
+        progress_frame.pack(fill="x", pady=25)
+        
+        self.status_label = tk.Label(progress_frame, text="System Idle", bg=self.card_bg, fg=self.brand_orange, font=('Inter', 8, 'bold'))
+        self.status_label.pack(anchor="w")
+        
+        self.progress = ttk.Progressbar(progress_frame, orient="horizontal", mode="determinate", style="TProgressbar")
+        self.progress.pack(fill="x", pady=5)
+
+        self.btn_convert = tk.Button(self.root, text="START CONVERSION", command=self.convert, 
+                                   bg="#334155", fg="white", font=('Inter', 12, 'bold'), 
+                                   relief="flat", padx=60, pady=15, state="disabled", cursor="hand2")
+        self.btn_convert.pack(pady=20)
 
     def select_file(self):
         file_path = filedialog.askopenfilename(filetypes=[("PDF Files", "*.pdf")])
         if file_path:
             self.pdf_path.set(file_path)
-            self.btn_convert.config(state="normal", bg="#f97316")
-            print(f"FILE LOADED: {os.path.basename(file_path)}")
+            self.btn_convert.config(state="normal", bg=self.brand_orange)
+            self.status_label.config(text="READY: SAVING TO SOURCE DIRECTORY")
+            print(f">>> TARGET LOCKED: {file_path}")
 
     def convert(self):
         pdf_file = self.pdf_path.get()
-        save_path = filedialog.asksaveasfilename(defaultextension=".xlsx", 
-                                               initialfile=os.path.basename(pdf_file).replace(".pdf", ""),
-                                               filetypes=[("Excel Files", "*.xlsx")])
-        
-        if not save_path:
-            print("CONVERSION ABORTED: No save path selected.")
+        if not os.path.exists(pdf_file):
             return
 
-        print(f"EXTRACTION STARTED: Mapping data tracks from {os.path.basename(pdf_file)}...")
+        # Automatically determine the save path without asking the user
+        base_dir = os.path.dirname(pdf_file)
+        filename = os.path.basename(pdf_file)
+        name_no_ext = os.path.splitext(filename)[0]
+        timestamp = datetime.now().strftime("%H%M%S")
+        output_filename = f"{name_no_ext}_direct_{timestamp}.xlsx"
+        save_path = os.path.join(base_dir, output_filename)
+
+        print(f">>> STARTING DIRECT CONVERSION: {save_path}")
         
         try:
             self.btn_convert.config(state="disabled", text="PROCESSING...")
             
             with pdfplumber.open(pdf_file) as pdf:
-                # Use pd.ExcelWriter to handle multiple sheets
                 with pd.ExcelWriter(save_path, engine='openpyxl') as writer:
                     total_pages = len(pdf.pages)
                     
                     for i, page in enumerate(pdf.pages):
-                        print(f"SCANNING PAGE {i+1}/{total_pages}...")
-                        # Extract tables
+                        self.status_label.config(text=f"PROCESSING PAGE {i+1} OF {total_pages}")
                         tables = page.extract_tables()
-                        
                         if tables:
-                            # Concatenate tables on the same page
-                            dfs = [pd.DataFrame(table[1:], columns=table[0]) for table in tables if table]
+                            dfs = [pd.DataFrame(t[1:], columns=t[0]) for t in tables if t]
                             if dfs:
                                 final_df = pd.concat(dfs, ignore_index=True)
-                                sheet_name = f"Page_{i+1}"
-                                final_df.to_excel(writer, sheet_name=sheet_name, index=False)
+                                final_df.to_excel(writer, sheet_name=f"Page_{i+1}", index=False)
                         
-                        # Update progress bar
                         self.progress['value'] = ((i + 1) / total_pages) * 100
                         self.root.update_idletasks()
 
-            print(f"SUCCESS: Excel output generated at {save_path}")
-            messagebox.showinfo("Success", f"Data extracted successfully to:\n{save_path}")
+            print(f">>> CONVERSION SUCCESSFUL: {save_path}")
+            self.status_label.config(text="DONE: FILE SAVED IN SOURCE FOLDER")
+            # Minimalist success alert
+            messagebox.showinfo("Success", f"Direct Conversion Complete!\nLocation: {save_path}")
             
         except Exception as e:
-            print(f"ENGINE FAILURE: {str(e)}")
-            messagebox.showerror("Engine Failure", f"An error occurred during extraction:\n{str(e)}")
+            print(f"!!! ENGINE ERROR: {str(e)}")
+            messagebox.showerror("Engine Error", str(e))
         
         finally:
-            self.btn_convert.config(state="normal", text="START EXTRACTION")
+            self.btn_convert.config(state="normal", text="START CONVERSION")
             self.progress['value'] = 0
 
 if __name__ == "__main__":
-    # Ensure stdout is flushed for real-time terminal feedback
-    sys.stdout.reconfigure(line_buffering=True)
+    if hasattr(sys.stdout, 'reconfigure'):
+        sys.stdout.reconfigure(line_buffering=True)
     root = tk.Tk()
     app = PDFToExcelConverter(root)
     root.mainloop()
