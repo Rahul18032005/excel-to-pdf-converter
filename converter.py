@@ -4,13 +4,14 @@ from tkinter import filedialog, messagebox, ttk
 import pdfplumber
 import pandas as pd
 import os
+import sys
 
 class PDFToExcelConverter:
     def __init__(self, root):
         self.root = root
         self.root.title("Excelconverter | Desktop Engine")
         self.root.geometry("500x350")
-        self.root.configure(bg="#0f172a") # Dark theme matching web app
+        self.root.configure(bg="#0f172a")
 
         # Styling
         style = ttk.Style()
@@ -18,6 +19,8 @@ class PDFToExcelConverter:
         style.configure("TButton", padding=10, font=('Inter', 10, 'bold'))
         
         self.setup_ui()
+        print("--- EXCELCONVERTER ENGINE INITIALIZED ---")
+        print("Ready for command. Select a PDF file to begin.")
 
     def setup_ui(self):
         # Header
@@ -50,14 +53,20 @@ class PDFToExcelConverter:
         if file_path:
             self.pdf_path.set(file_path)
             self.btn_convert.config(state="normal", bg="#f97316")
+            print(f"FILE LOADED: {os.path.basename(file_path)}")
 
     def convert(self):
         pdf_file = self.pdf_path.get()
-        save_path = filedialog.asksaveasfilename(defaultextension=".xlsx", filetypes=[("Excel Files", "*.xlsx")])
+        save_path = filedialog.asksaveasfilename(defaultextension=".xlsx", 
+                                               initialfile=os.path.basename(pdf_file).replace(".pdf", ""),
+                                               filetypes=[("Excel Files", "*.xlsx")])
         
         if not save_path:
+            print("CONVERSION ABORTED: No save path selected.")
             return
 
+        print(f"EXTRACTION STARTED: Mapping data tracks from {os.path.basename(pdf_file)}...")
+        
         try:
             self.btn_convert.config(state="disabled", text="PROCESSING...")
             
@@ -67,12 +76,12 @@ class PDFToExcelConverter:
                     total_pages = len(pdf.pages)
                     
                     for i, page in enumerate(pdf.pages):
+                        print(f"SCANNING PAGE {i+1}/{total_pages}...")
                         # Extract tables
                         tables = page.extract_tables()
                         
                         if tables:
-                            # If page has multiple tables, we combine them for simplicity
-                            # or you could save them side-by-side. Here we concatenate.
+                            # Concatenate tables on the same page
                             dfs = [pd.DataFrame(table[1:], columns=table[0]) for table in tables if table]
                             if dfs:
                                 final_df = pd.concat(dfs, ignore_index=True)
@@ -83,9 +92,11 @@ class PDFToExcelConverter:
                         self.progress['value'] = ((i + 1) / total_pages) * 100
                         self.root.update_idletasks()
 
+            print(f"SUCCESS: Excel output generated at {save_path}")
             messagebox.showinfo("Success", f"Data extracted successfully to:\n{save_path}")
             
         except Exception as e:
+            print(f"ENGINE FAILURE: {str(e)}")
             messagebox.showerror("Engine Failure", f"An error occurred during extraction:\n{str(e)}")
         
         finally:
@@ -93,6 +104,8 @@ class PDFToExcelConverter:
             self.progress['value'] = 0
 
 if __name__ == "__main__":
+    # Ensure stdout is flushed for real-time terminal feedback
+    sys.stdout.reconfigure(line_buffering=True)
     root = tk.Tk()
     app = PDFToExcelConverter(root)
     root.mainloop()
