@@ -12,6 +12,7 @@ const App: React.FC = () => {
   const [format, setFormat] = useState<'excel' | 'word'>('excel');
   const [pendingScroll, setPendingScroll] = useState<string | null>(null);
   const [workspaceKey, setWorkspaceKey] = useState(0);
+  const [lastError, setLastError] = useState<string | null>(null);
 
   useEffect(() => {
     if (pendingScroll) {
@@ -32,16 +33,14 @@ const App: React.FC = () => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     } else {
-      // If we are already in the target view
       if (targetId) {
         const element = document.getElementById(targetId);
         if (element) {
           element.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
-        
-        // Specific logic for "New Task": reset the converter state
         if (targetId === 'converter-section' && view === 'workspace') {
           setWorkspaceKey(prev => prev + 1);
+          setLastError(null);
         }
       } else {
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -55,9 +54,9 @@ const App: React.FC = () => {
       <section id="features" className="py-24 bg-[#0f172a] scroll-mt-20">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold mb-4 text-white">Dashboard Calibration</h2>
-            <p className="text-slate-400 max-w-2xl mx-auto">
-              Our advanced conversion engine preserves formatting nuances whether you're moving to Excel spreadsheets or structured Word documents.
+            <h2 className="text-3xl font-bold mb-4 text-white uppercase tracking-tighter">Core Technologies</h2>
+            <p className="text-slate-400 max-w-2xl mx-auto font-medium">
+              A precision-engineered stack designed for high-fidelity document reproduction and data hygiene.
             </p>
           </div>
           <FeatureGrid />
@@ -73,20 +72,25 @@ const App: React.FC = () => {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-12">
           <div className="flex flex-col gap-4">
             <div className="flex items-center gap-2 text-sm text-slate-500">
-              <button onClick={() => navigateTo('home')} className="hover:text-orange-500 transition-colors">System</button>
+              <button onClick={() => navigateTo('home')} className="hover:text-orange-500 transition-colors uppercase font-bold tracking-widest text-[10px]">System</button>
               <span>/</span>
-              <span className="text-orange-500 font-medium uppercase tracking-wider text-[10px]">Processing Unit</span>
+              <span className="text-orange-500 font-bold uppercase tracking-wider text-[10px]">Processing Unit</span>
             </div>
-            <h1 className="text-4xl font-bold text-white">Live Data Converter</h1>
+            <h1 className="text-4xl font-black text-white tracking-tighter">DATA EXTRACTION HUB</h1>
           </div>
         </div>
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div id="converter-section" className="lg:col-span-2 space-y-8 scroll-mt-32">
-            <WebConverter key={workspaceKey} format={format} setFormat={setFormat} />
+            <WebConverter 
+              key={workspaceKey} 
+              format={format} 
+              setFormat={setFormat} 
+              onErrorUpdate={setLastError}
+            />
           </div>
           <div id="ai-section" className="lg:col-span-1 h-fit sticky top-32 scroll-mt-32">
-            <AIAssistant />
+            <AIAssistant errorState={lastError} />
           </div>
         </div>
       </div>
